@@ -1,0 +1,11 @@
+1.3 print_f .
+(( 4.2 + 1.3 )) print_f .
+b = (( 2 + 1 ))
+b print_f .
+"foo" print_s .
+
+myprint = { (s string)
+  s print_s .
+}
+
+"x" myprint .

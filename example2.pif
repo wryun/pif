@@ -1,0 +1,39 @@
+Stack = (
+  contents list
+  pop func
+  push func
+)
+
+newStack = {
+  contents = []
+  pop = {(l list)
+    -1 l:remove.
+  }
+  push = {(l list, int)
+    l:append.
+  }
+}
+
+ops = {
+  '^': {(Stack) :pop. ** :pop.)
+  '*': {(Stack) :pop. * :pop.)
+  '/': {(Stack) :pop. / :pop.)
+  '+': {(Stack) :pop. + :pop.)
+  '-': {(Stack) :pop. - :pop.)
+}
+
+rpn_calc = {(list)
+  stack = newStack.
+  for token
+    if token ops :contains.
+      stack ops[token].
+    else
+      token:to_number. stack:push.
+
+  stack
+}
+
+main = {(list)
+  rpn_calc.
+  :pop. print.
+}
