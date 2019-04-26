@@ -2,7 +2,11 @@
 
 # TODO
 
+type equality/isinstance comparisons
+
 figure out how to do Function more nicely (separate builtin/non-builtin types?)
+
+add proper boolean support
 
 \*list type (entire unnamed _sentence_ context as list, unless sentence context is empty, in which case use unnamed block context - this is really just a hack to make printing nicer)
 
