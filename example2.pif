@@ -1,26 +1,30 @@
 Stack = (
   contents list
-  pop func
-  push func
+  pop Function
+  push Function
 )
 
-newStack = {
-  contents = []
-  pop = {(l list)
-    -1 l:remove.
-  }
-  push = {(l list, int)
-    l:append.
-  }
-}
+newStack = func ()
+  [Stack|
+    contents = []
 
-ops = {
-  '^': {(Stack) :pop. ** :pop.)
-  '*': {(Stack) :pop. * :pop.)
-  '/': {(Stack) :pop. / :pop.)
-  '+': {(Stack) :pop. + :pop.)
-  '-': {(Stack) :pop. - :pop.)
-}
+    pop = func (l list)
+      -1 l:remove.
+    end
+
+    push = func (l list i int)
+      l:append.
+    end
+  ]
+end
+
+ops = [
+  '^': func (Stack) ((:pop. ** :pop.)) end
+  '*': func (Stack) ((:pop. * :pop.)) end
+  '/': func (Stack) ((:pop. / :pop.)) end
+  '+': {(Stack) ((:pop. + :pop.)) end
+  '-': {(Stack) ((:pop. - :pop.)) end
+]
 
 rpn_calc = {(list)
   stack = newStack.
