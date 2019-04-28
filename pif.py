@@ -1,12 +1,13 @@
 from textx.metamodel import metamodel_from_str
 import operator
+import os
 from functools import reduce
 
 import expression
 import logging
 
 
-DEBUG=False
+DEBUG=os.environ.get('PIF_DEBUG') == '1'
 
 if DEBUG:
     logging.basicConfig(level=logging.DEBUG)
@@ -18,19 +19,22 @@ GRAMMAR = """
 Program: Block;
 Block: paragraphs*=Paragraph;
 Paragraph: /(?m)\n*/ lines+=Line /(?m)\n*/;
-Line: assignment=Assignment? ( expr=Sentence | expr=IfStatement | expr=WhileStatement) /(?m)\n/;
+Line: assignment=Assignment? ( expr=Sentence | expr=IfStatement | expr=WhileStatement | expr=ForStatement ) /(?m)\n/;
 Sentence: instructions+=Instruction;
-IfStatement: 'if' condition=Sentence 'do' block=Block ('else' else_block=Block)? 'end';
+IfStatement: 'if' condition=Sentence 'do' block=Block ('elif' elif_conditions=Sentence 'do' elif_blocks=Block)* ('else' else_block=Block)? 'end';
 WhileStatement: 'while' condition=Sentence 'do' block=Block 'end';
+ForStatement: 'for' (var=MyID 'in')? sentence=Sentence 'do' block=Block 'end';
 Instruction: Pushable | '.';
 Assignment: var=MyID '=';
 Pushable: function=Function | var=MyID | rawval=RawVal | expr=Expression;
 Expression: '((' e=Expression0 '))';
-RawVal: FLOAT | STRING;
+RawVal: FLOAT | STRING | List | Dict;
+List: 'List[' (sentences=Sentence /(?m),?\n*/)* ']';
+Dict: 'Dict[' (keys=Sentence '=' values=Sentence /(?m),?\n*/)* ']';
 Function: 'func' args=Types block=Block 'end';
 Types: '(' varsWithType*=VarWithType ')';
 VarWithType: name=MyID type=MyID;
-Keyword: 'end' | 'func' | 'if' | 'while' | 'for' | 'do' | 'else' | 'elif';
+Keyword: 'end' | 'func' | 'if' | 'while' | 'for' | 'do' | 'else' | 'elif' | 'List' | 'Dict';
 MyID: !Keyword ID;
 """ + expression.GRAMMAR
 #Type: Types | ID;
@@ -60,6 +64,10 @@ class Pushable:
             logging.debug(c)
             self.function.add_context(c)
             return self.function
+        elif hasattr(self.rawval, 'sentences'):
+            return [s.eval(c) for s in self.rawval.sentences]
+        elif hasattr(self.rawval, 'keys'):
+            return {k.eval(c): v.eval(c) for (k, v) in zip(self.rawval.keys, self.rawval.values)}
         else:
             return self.rawval
 
@@ -85,20 +93,30 @@ class Function:
 
 
 class IfStatement:
-    def __init__(self, parent=None, condition=None, block=None, else_block=None):
+    def __init__(self, parent=None, condition=None, block=None, elif_conditions=None, elif_blocks=None, else_block=None):
         self.parent = parent
         self.condition = condition
         self.block = block
         self.else_block = else_block
+        self.elif_blocks = elif_blocks
+        self.elif_conditions = elif_conditions
 
     def eval(self, c):
-        res = self.condition.eval(c)
-        if res is None:
-            raise Exception('must have a result')
-        elif res:
-            return self.block.eval(c)
-        elif self.else_block:
+        zipped = zip([self.condition] + (self.elif_conditions or []),
+                     [self.block] + (self.elif_blocks or []))
+        for (cond, block) in zipped:
+            res = cond.eval(c)
+            debug(self, 'evaluating condition')
+            if res is None:
+                raise Exception('must have a result')
+            elif res:
+                debug(self, 'block eval')
+                return block.eval(c)
+
+        if self.else_block:
             return self.else_block.eval(c)
+
+        return None
 
 
 class WhileStatement:
@@ -117,6 +135,24 @@ class WhileStatement:
                 last_eval = self.block.eval(c)
             else:
                 break
+        return last_eval
+
+
+class ForStatement:
+    def __init__(self, parent=None, var=None, sentence=None, block=None):
+        self.parent = parent
+        self.var = var
+        self.sentence = sentence
+        self.block = block
+
+    def eval(self, c):
+        last_eval = None
+        for elem in self.sentence.eval(c):
+            if not self.var:
+                c.push_type(elem)
+            elif self.var and self.var != '_':
+                c.push_name(self.var, elem)
+            last_eval = self.block.eval(c)
         return last_eval
 
 
@@ -179,7 +215,7 @@ class Block:
 
 model = metamodel_from_str(
   GRAMMAR,
-  classes=[Pushable, Block, Sentence, WhileStatement, IfStatement, Function, Types] + expression.grammar_classes,
+  classes=[Pushable, Block, Sentence, WhileStatement, IfStatement, ForStatement, Function, Types] + expression.grammar_classes,
   ws=' '
 )
 
@@ -214,7 +250,7 @@ def find_dupes(it):
 # rules:
 #  looking up to call a function should only look in current function context
 #  looking up a name as a name lookup should look everywhere (traverse indefinitely)
-#  any shadowing is illegal
+#  any shadowing of names is illegal; shadowing of types is legal if not in current context
 #  AND you cannot mutate variables outside your current function context
 class Context:
     def __init__(self, parent=None, n_v=None, t_v=None, args=None, args_dupe_types=None):
@@ -360,10 +396,12 @@ def main(fname, *args):
     c = Context()
     c.push_name('print_s', Function(builtin=print, arg_dict=dict(s=str)))
     c.push_name('print_f', Function(builtin=print, arg_dict=dict(f=float)))
+    c.push_name('print_l', Function(builtin=print, arg_dict=dict(l=list)))
+    c.push_name('print_d', Function(builtin=print, arg_dict=dict(d=dict)))
     c.push_name('string', str)
     c.push_name('number', float)
 
-    program = model.model_from_file(fname, debug=DEBUG)
+    program = model.model_from_file(fname) #, debug=DEBUG)
     program.eval(c)
 
     #code.interact(local={**globals(), **locals()})

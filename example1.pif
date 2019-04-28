@@ -1,3 +1,27 @@
+for i in List[1, 2, 3] do
+  print_f i .
+end
+
+for List[1, 2, 3] do
+  print_f .
+end
+
+List[1, 2, 3] print_l .
+List[((1 + 1))
+  2, 3] print_l .
+Dict[1=2, 3=4] print_d .
+
+
+if ((1)) do
+  print_s "true 1" .
+end
+
+if ((0 == 1)) do
+  print_s "false 0" .
+elif ((1 == 1)) do
+  print_s "DO!" .
+end
+
 fib2 = func (n number)
   a = 0
   b = 1
@@ -57,12 +81,4 @@ end
 
 myprint "x" .
 fprint 1 .
-
-if ((1)) do
-  print_s "true 1" .
-end
-
-if ((0 == 1)) do
-  print_s "false 0" .
-end
 
