@@ -2,6 +2,7 @@ from textx.metamodel import metamodel_from_file
 
 import logging
 import os
+import sys
 
 from context import Context
 
@@ -45,19 +46,24 @@ def main(fname, *args):
     c.push_name('string', str)
     c.push_name('number', float)
 
-    program = mm.model_from_file(fname) #, debug=DEBUG)
+    program = mm.model_from_file(fname, debug=PARSE_DEBUG)
     try:
-        program.eval(c)
+        result = program.eval(c)
+        if result is not None:
+            logging.error('leftover value %s', result)
+            sys.exit(1)
     except Exception as e:
         if hasattr(e, 'model'):
             line, col = program._tx_parser.pos_to_linecol(e.model._tx_position)
-            logging.error('line %d col %d - %s - %s', line, col, e.model.__class__.__name__, e)
+            (logging.exception if DEBUG else logging.error)('line %d col %d - %s - %s', line, col, e.model.__class__.__name__, e)
         else:
             logging.exception('unexpected failure')
+        sys.exit(1)
 
 
 if __name__ == '__main__':
     DEBUG=os.environ.get('PIF_DEBUG') == '1'
+    PARSE_DEBUG=os.environ.get('PIF_PARSE_DEBUG') == '1'
 
     if DEBUG:
         logging.basicConfig(level=logging.DEBUG)

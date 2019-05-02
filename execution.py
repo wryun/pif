@@ -31,14 +31,20 @@ def block_eval(self, c):
         for line in paragraph.lines:
             debug(line)
             try:
-                res = (line.sentence if line.sentence else line.statement).eval(c)
+                res = (line.sentence or line.statement).eval(c)
                 if res is None:
                     assert not line.assignment
                 elif line.sentence and not line.assignment:
                     # i.e. only push from a sentence by default
                     # swallow things from ifs/whiles/fors to avoid noise
                     c.push_type(res)
-                elif line.assignment and line.assignment.var != '_':
+                elif line.statement and line.assignment:
+                    # if we had a statement line, our result will be leftover
+                    # in most situations since they run their code in the same context.
+                    # So we throw it out if there is an assignment.
+                    c.pop_type(type(res))
+
+                if line.assignment and line.assignment.var != '_':
                     c.push_name(line.assignment.var, res)
             except Exception as e:
                 attach_model(line.sentence or line.statement, e)

@@ -26,6 +26,9 @@ class Context:
             raise KeyError(f'attempting to automatically fill ambiguous type {t} (multiple names for that type in function sig)')
         elif t in self.t_v:
             return self, self.t_v[t]
+        if recurse > 1 or self.parent is None:
+            # looks similar to above, huh? Not quite.
+            raise KeyError(f'no such type "{t}" in current context')
         else:
             return self.parent.lookup_by_type(t, recurse=recurse + 1)
 

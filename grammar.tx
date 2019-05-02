@@ -1,7 +1,8 @@
 Program: Block;
 Block: paragraphs*=Paragraph;
 Paragraph: /(?m)\n*/ lines+=Line /(?m)\n*/;
-Line: assignment=Assignment? ( sentence=Sentence | statement=If | statement=While | statement=For ) /(?m)\n/;
+Line: assignment=Assignment? ( sentence=Sentence | statement=If | statement=While | statement=For ) ( &LineEndKeyword | /(?m)\n/ );
+LineEndKeyword: 'end' | 'else' | 'elif';
 Sentence: instructions+=Instruction;
 Instruction: Pushable | '.';
 Assignment: var=MyID '=';
