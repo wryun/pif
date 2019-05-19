@@ -14,7 +14,6 @@ import execution
 
 def make_metamodel():
     mm = metamodel_from_file('grammar.tx', ws=' ')
-
     classes = mm.namespaces['grammar']
 
     # magically attach things from modules to automatically
@@ -37,7 +36,7 @@ def make_builtin(fn, args_dict):
     return lambda s_c: fn(*(s_c.pop_type(t) for (_, t) in args_dict.items()))
 
 
-def make_context():
+def run_program(mm, prog_str, debug=False):
     c = Context()
     c.push_name('print_s', make_builtin(print, dict(s=str)))
     c.push_name('print_f', make_builtin(print, dict(f=float)))
@@ -45,7 +44,9 @@ def make_context():
     c.push_name('print_d', make_builtin(print, dict(d=dict)))
     c.push_name('string', str)
     c.push_name('number', float)
-    return c
+
+    program = mm.model_from_str(prog_str, debug=debug)
+    return program.eval(program._tx_parser, c)
 
 
 if __name__ == '__main__':
@@ -59,12 +60,11 @@ if __name__ == '__main__':
 
     file_name = sys.argv[1]
 
-    with codecs.open(file_name, 'r', 'utf-8') as f:
+    with open(file_name) as f:
         prog_str = f.read()
 
     try:
-        program = make_metamodel().model_from_str(prog_str, debug=PARSE_DEBUG)
-        result = program.eval(program._tx_parser, make_context())
+        result = run_program(make_metamodel(), prog_str, debug=PARSE_DEBUG)
         if result is not None:
             logging.error('leftover value %s', result)
             sys.exit(4)

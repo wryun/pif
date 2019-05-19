@@ -2,17 +2,14 @@ from unittest import TestCase, skip
 
 from textx.exceptions import TextXSyntaxError
 from execution import ExecutionError
+from pif import run_program, make_metamodel
 
 
-import pif
+mm = make_metamodel()
 
 
-mm = pif.make_metamodel()
-
-
-def run(s):
-    program = mm.model_from_str(s)
-    return program.eval(program._tx_parser, pif.make_context())
+def run(prog_str):
+    return run_program(mm, prog_str)
 
 
 class SyntaxError(TestCase):
