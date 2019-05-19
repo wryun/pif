@@ -1,5 +1,8 @@
 from unittest import TestCase, skip
 
+from textx.exceptions import TextXSyntaxError
+from execution import ExecutionError
+
 
 import pif
 
@@ -10,6 +13,20 @@ mm = pif.make_metamodel()
 def run(s):
     program = mm.model_from_str(s)
     return program.eval(program._tx_parser, pif.make_context())
+
+
+class SyntaxError(TestCase):
+    def test_basic_position(self):
+        with self.assertRaises(TextXSyntaxError) as cm:
+            run('do nothing end\n')
+        self.assertIn('position (1, 1)', str(cm.exception))
+
+
+class ExecError(TestCase):
+    def test_basic_position(self):
+        with self.assertRaises(ExecutionError) as cm:
+            run('nothing\n')
+        self.assertIn('position (1, 1)', str(cm.exception))
 
 
 class Function(TestCase):

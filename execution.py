@@ -9,7 +9,7 @@ from context import Context
 def msg_with_position(parser, model, message):
     # super annoying interface here...
     line, col = parser.pos_to_linecol(model._tx_position)
-    return f'line {line} col {col} - {model.__class__.__name__} - {message}'
+    return f'position ({line}, {col}) - {model.__class__.__name__} - {message}'
 
 
 class ExecutionError(Exception):
