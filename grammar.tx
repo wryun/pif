@@ -1,7 +1,9 @@
 Program: Block;
 Block: paragraphs*=Paragraph;
 Paragraph: /(?m)\n*/ lines+=Line /(?m)\n*/;
-Line: assignment=Assignment? ( sentence=Sentence | statement=If | statement=While | statement=For ) ( &LineEndKeyword | /(?m)\n/ );
+Line: InnerLine | FullLine;
+InnerLine: assignment=Assignment? ( sentence=Sentence | statement=If | statement=While | statement=For ) &LineEndKeyword;
+FullLine: assignment=Assignment? ( sentence=Sentence | statement=If | statement=While | statement=For ) /(?m)\n/;
 LineEndKeyword: 'end' | 'else' | 'elif';
 Sentence: instructions+=Instruction;
 Instruction: Pushable | '.';
@@ -17,7 +19,7 @@ WrappedExpression: '((' e=Expression0 '))';
 Types: '(' varsWithType*=VarWithType ')';
 VarWithType: name=MyID type=MyID;
 
-Keyword: 'end' | 'func' | 'if' | 'while' | 'for' | 'do' | 'else' | 'elif' | 'List' | 'Dict';
+Keyword: 'end' | 'func' | 'if' | 'while' | 'for' | 'do' | 'else' | 'elif' | 'List[' | 'Dict[';
 MyID: !Keyword ID;
 
 RawVal: FLOAT | STRING | List | Dict;
@@ -31,3 +33,5 @@ Operators1: '+' | '-';
 Expression2: expr=Value (ops=Operators2 exprs=Value)*;
 Operators2: '*' | '/';
 Value: id=ID | num=FLOAT | ('(' expr=Expression0 ')');
+
+Comment: /#.*$/;

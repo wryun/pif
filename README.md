@@ -1,7 +1,5 @@
 # pif
 
-# TODO
-
 type equality/isinstance comparisons
 
 figure out how to do Function more nicely (separate builtin/non-builtin types?)
@@ -46,10 +44,6 @@ clean up base types to act like struct types
   \*[1 "a"] -> throw everything into sentence context as types (i.e. will fail if dupes!)
   \*[x=1 y="a"] -> throw everything into sentence context with names (allows override)
 
-- elif
-
-- for loops
-
 - comments
 
 - one line functions (maybe some kind of lookahead but don't process... possible in textx)
@@ -76,7 +70,7 @@ Animal = (
 Then:
 
 NewBear = func (name string)
-  [Animal|
+  Animal[
     name = name
     type = "bear"
 

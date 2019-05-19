@@ -1,18 +1,19 @@
+from textx.exceptions import TextXSyntaxError
 from textx.metamodel import metamodel_from_file
 
+import codecs
 import logging
 import os
 import sys
 
+
 from context import Context
+import expression
+import execution
 
 
 def make_metamodel():
     mm = metamodel_from_file('grammar.tx', ws=' ')
-
-    # modules with our evals
-    import expression
-    import execution
 
     classes = mm.namespaces['grammar']
 
@@ -24,7 +25,7 @@ def make_metamodel():
             if eval_name in module_vars:
                 cls.eval = module_vars[eval_name]
 
-    return mm, classes
+    return mm
 
 
 def make_builtin(fn, args_dict):
@@ -36,8 +37,7 @@ def make_builtin(fn, args_dict):
     return lambda s_c: fn(*(s_c.pop_type(t) for (_, t) in args_dict.items()))
 
 
-def main(fname, *args):
-    mm, classes = make_metamodel()
+def make_context():
     c = Context()
     c.push_name('print_s', make_builtin(print, dict(s=str)))
     c.push_name('print_f', make_builtin(print, dict(f=float)))
@@ -45,20 +45,7 @@ def main(fname, *args):
     c.push_name('print_d', make_builtin(print, dict(d=dict)))
     c.push_name('string', str)
     c.push_name('number', float)
-
-    program = mm.model_from_file(fname, debug=PARSE_DEBUG)
-    try:
-        result = program.eval(c)
-        if result is not None:
-            logging.error('leftover value %s', result)
-            sys.exit(1)
-    except Exception as e:
-        if hasattr(e, 'model'):
-            line, col = program._tx_parser.pos_to_linecol(e.model._tx_position)
-            (logging.exception if DEBUG else logging.error)('line %d col %d - %s - %s', line, col, e.model.__class__.__name__, e)
-        else:
-            logging.exception('unexpected failure')
-        sys.exit(1)
+    return c
 
 
 if __name__ == '__main__':
@@ -70,5 +57,21 @@ if __name__ == '__main__':
     else:
         logging.basicConfig(level=logging.INFO)
 
-    main('example1.pif')
-    #main(*sys.argv[1:])
+    file_name = sys.argv[1]
+
+    with codecs.open(file_name, 'r', 'utf-8') as f:
+        prog_str = f.read()
+
+    try:
+        program = make_metamodel().model_from_str(prog_str, debug=PARSE_DEBUG)
+        result = program.eval(program._tx_parser, make_context())
+        if result is not None:
+            logging.error('leftover value %s', result)
+            sys.exit(4)
+    # User facing errors, do not provide stack trace.
+    except TextXSyntaxError as e:
+        (logging.exception if DEBUG else logging.error)(e)
+        sys.exit(2)
+    except execution.ExecutionError as e:
+        (logging.exception if DEBUG else logging.error)(e)
+        sys.exit(3)

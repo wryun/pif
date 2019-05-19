@@ -16,17 +16,23 @@ OPS = {
 }
 
 
-def expression_eval(self, c):
-    return reduce(lambda total, elem: OPS[elem[0]](total, elem[1].eval(c)),
-                  zip(self.ops, self.exprs), self.expr.eval(c))
+def expression_eval(self, parser, c):
+    return reduce(lambda total, elem: OPS[elem[0]](total, elem[1].eval(parser, c)),
+                  zip(self.ops, self.exprs), self.expr.eval(parser, c))
 
 
-def value_eval(self, c):
+def value_eval(self, parser, c):
     if self.id:
-        return c.lookup_by_name(self.id)[1]
+        val = c.get_name(self.id)
+        if isinstance(val, float) or isinstance(val, int):
+            return val
+        elif val == float or val == int:
+            return c.pop_type(val)
+        else:
+            raise Exception('expressions can only have numbers')
     elif self.expr:
-        return self.expr.eval(c)
+        return self.expr.eval(parser, c)
     elif self.num is not None:
         return self.num
     else:
-        raise 'hell'
+        raise Exception('internal error - failed switch statement')
