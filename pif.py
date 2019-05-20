@@ -53,8 +53,7 @@ def run_program(mm, prog_str, context=None, parse_debug=False):
     if not context:
         context = make_context()
 
-    program = mm.model_from_str(prog_str, debug=parse_debug)
-    return program.eval(program._tx_parser, context)
+    return mm.model_from_str(prog_str, debug=parse_debug).eval(context)
 
 
 def run_repl(mm, parse_debug=False):

@@ -2,32 +2,33 @@ import logging
 import sys
 import types
 
+from textx.model import get_model
 
 from context import Context
 
 
-def msg_with_position(parser, model, message):
+def msg_with_position(obj, message):
     # super annoying interface here...
-    line, col = parser.pos_to_linecol(model._tx_position)
-    return f'position ({line}, {col}) - {model.__class__.__name__} - {message}'
+    line, col = get_model(obj)._tx_parser.pos_to_linecol(obj._tx_position)
+    return f'position ({line}, {col}) - {obj.__class__.__name__} - {message}'
 
 
 class ExecutionError(Exception):
-    def __init__(self, parser, model, message):
-        super().__init__(msg_with_position(parser, model, message))
+    def __init__(self, obj, message):
+        super().__init__(msg_with_position(obj, message))
 
 
-def debug(parser, model, message="info"):
-    logging.debug(msg_with_position(parser, model, message))
+def debug(obj, message="info"):
+    logging.debug(msg_with_position(obj, message))
 
 
-def block_eval(self, parser, c):
+def block_eval(self, c):
     for paragraph in self.paragraphs:
-        debug(parser, paragraph)
+        debug(paragraph)
         for line in paragraph.lines:
-            debug(parser, line)
+            debug(line)
             try:
-                res = (line.sentence or line.statement).eval(parser, c)
+                res = (line.sentence or line.statement).eval(c)
                 if res is None:
                     assert not line.assignment
                 elif line.sentence and not line.assignment:
@@ -46,7 +47,7 @@ def block_eval(self, parser, c):
                 raise
             except Exception as e:
                 # nasty rewrapping... should clean up Context Exception usage.
-                raise ExecutionError(parser, line.sentence or line.statement, e) from e
+                raise ExecutionError(line.sentence or line.statement, e) from e
 
         try:
             c.result()  # validate each paragraph has at most one result
@@ -58,14 +59,14 @@ def block_eval(self, parser, c):
         except ExecutionError:
             raise
         except Exception as e:
-            raise ExecutionError(parser, paragraph, e) from e
+            raise ExecutionError(paragraph, e) from e
 
     logging.debug('function result %s', c.result())
     return c.result()
 
 
-def sentence_eval(self, parser, c):
-    debug(parser, self)
+def sentence_eval(self, c):
+    debug(self)
     s_c = Context(c)
     for instruction in self.instructions:
         if instruction == '.':
@@ -75,78 +76,78 @@ def sentence_eval(self, parser, c):
                 s_c.push_type(val)
             logging.debug('after func: %s', s_c)
         else:
-            s_c.push_type(instruction.eval(parser, c))
+            s_c.push_type(instruction.eval(c))
 
     return s_c.result()
 
 
-def function_eval(self, parser, definition_context):
-    arg_dict = self.args.eval(parser, definition_context)
+def function_eval(self, definition_context):
+    arg_dict = self.args.eval(definition_context)
 
     def runnable(s_c):
         exec_context = definition_context.new_function_context(s_c, arg_dict)
-        return self.block.eval(parser, exec_context)
+        return self.block.eval(exec_context)
 
     return runnable
 
 
-def if_eval(self, parser, c):
+def if_eval(self, c):
     zipped = zip([self.condition] + (self.elif_conditions or []),
                  [self.block] + (self.elif_blocks or []))
     for (cond, block) in zipped:
-        res = cond.eval(parser, c)
-        debug(parser, self, 'evaluating condition')
+        res = cond.eval(c)
+        debug(self, 'evaluating condition')
         if res is None:
-            raise ExecutionError(parser, self, 'if condition must have result')
+            raise ExecutionError(self, 'if condition must have result')
         elif res:
-            debug(parser, self, 'block eval')
-            return block.eval(parser, c)
+            debug(self, 'block eval')
+            return block.eval(c)
 
     if self.else_block:
-        return self.else_block.eval(parser, c)
+        return self.else_block.eval(c)
 
     return None
 
 
-def pushable_eval(self, parser, c):
+def pushable_eval(self, c):
     if self.var:
         return c.get_name(self.var)
     elif self.expr:
-        return self.expr.e.eval(parser, c)
+        return self.expr.e.eval(c)
     elif self.function:
         logging.debug(c)
-        return self.function.eval(parser, c)
+        return self.function.eval(c)
     elif hasattr(self.rawval, 'sentences'):
-        return [s.eval(parser, c) for s in self.rawval.sentences]
+        return [s.eval(c) for s in self.rawval.sentences]
     elif hasattr(self.rawval, 'keys'):
-        return {k.eval(parser, c): v.eval(parser, c) for (k, v) in zip(self.rawval.keys, self.rawval.values)}
+        return {k.eval(c): v.eval(c) for (k, v) in zip(self.rawval.keys, self.rawval.values)}
     else:
         return self.rawval
 
 
-def while_eval(self, parser, c):
+def while_eval(self, c):
     last_eval = None
     while True:
-        res = self.condition.eval(parser, c)
+        res = self.condition.eval(c)
         if res is None:
-            raise ExecutionError(parser, self, 'while condition must have result')
+            raise ExecutionError(self, 'while condition must have result')
         elif res:
-            last_eval = self.block.eval(parser, c)
+            last_eval = self.block.eval(c)
         else:
             break
     return last_eval
 
 
-def types_eval(self, parser, c):
+def types_eval(self, c):
     return {entry.name: c.get_name(entry.type) for entry in self.varsWithType}
 
 
-def for_eval(self, parser, c):
+def for_eval(self, c):
     last_eval = None
-    for elem in self.sentence.eval(parser, c):
+    for elem in self.sentence.eval(c):
         if not self.var:
             c.push_type(elem)
         elif self.var and self.var != '_':
             c.push_name(self.var, elem)
-        last_eval = self.block.eval(parser, c)
+        last_eval = self.block.eval(c)
     return last_eval
