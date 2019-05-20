@@ -52,10 +52,13 @@ def block_eval(self, parser, c):
             c.result()  # validate each paragraph has at most one result
             # TODO this doesn't actually do this?
             # Should check number of results instead? (or start a new context?)
+            # Or do we never want to carry an earlier paragraph through
+            # (probably good except for REPL? REPL should not parse a block but a Line?)
+            # (REPL also confused here because it retains the borked context)
         except ExecutionError:
             raise
         except Exception as e:
-            raise ExecutionError(parser, line.paragraph, e) from e
+            raise ExecutionError(parser, paragraph, e) from e
 
     logging.debug('function result %s', c.result())
     return c.result()

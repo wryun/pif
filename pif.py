@@ -1,6 +1,7 @@
 from textx.exceptions import TextXSyntaxError
 from textx.metamodel import metamodel_from_file
 
+import argparse
 import codecs
 import logging
 import os
@@ -36,7 +37,7 @@ def make_builtin(fn, args_dict):
     return lambda s_c: fn(*(s_c.pop_type(t) for (_, t) in args_dict.items()))
 
 
-def run_program(mm, prog_str, debug=False):
+def make_context():
     c = Context()
     c.push_name('print_s', make_builtin(print, dict(s=str)))
     c.push_name('print_f', make_builtin(print, dict(f=float)))
@@ -45,33 +46,72 @@ def run_program(mm, prog_str, debug=False):
     c.push_name('string', str)
     c.push_name('number', float)
 
-    program = mm.model_from_str(prog_str, debug=debug)
-    return program.eval(program._tx_parser, c)
+    return c
+
+
+def run_program(mm, prog_str, context=None, parse_debug=False):
+    if not context:
+        context = make_context()
+
+    program = mm.model_from_str(prog_str, debug=parse_debug)
+    return program.eval(program._tx_parser, context)
+
+
+def run_repl(mm, parse_debug=False):
+    c = make_context()
+    while True:
+        try:
+            line = input(']] ')
+        except EOFError:
+            print()
+            return 0
+        try:
+            print('<-', run_program(mm, line + '\n', context=c, parse_debug=parse_debug))
+        except TextXSyntaxError as e:
+            logging.error(e)
+            continue
+        except execution.ExecutionError as e:
+            logging.error(e)
+            continue
+
+
+def run_files(mm, file_names, parse_debug=False):
+    try:
+        for fname in file_names:
+            with open(fname) as f:
+                prog_str = f.read()
+            result = run_program(mm, prog_str, parse_debug=parse_debug)
+            if result is not None:
+                logging.error('leftover value %s', result)
+                return 4
+    # User facing errors, do not provide stack trace.
+    except TextXSyntaxError as e:
+        (logging.exception if args.verbosity > 2 else logging.error)(e)
+        return 2
+    except execution.ExecutionError as e:
+        (logging.exception if args.verbosity > 2 else logging.error)(e)
+        return 3
+
+
+def main(args):
+    parse_debug = args.verbosity > 3
+    logging.basicConfig(level={
+        0: logging.ERROR, 1: logging.WARNING, 2: logging.INFO, 3: logging.DEBUG
+    }.get(args.verbosity, logging.DEBUG))
+
+    mm = make_metamodel()
+
+    if not args.files:
+        code = run_repl(mm, parse_debug=parse_debug)
+    else:
+        code = run_files(mm, args.files, parse_debug=parse_debug)
+
+    sys.exit(code)
+
 
 
 if __name__ == '__main__':
-    DEBUG=os.environ.get('PIF_DEBUG') == '1'
-    PARSE_DEBUG=os.environ.get('PIF_PARSE_DEBUG') == '1'
-
-    if DEBUG:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
-
-    file_name = sys.argv[1]
-
-    with open(file_name) as f:
-        prog_str = f.read()
-
-    try:
-        result = run_program(make_metamodel(), prog_str, debug=PARSE_DEBUG)
-        if result is not None:
-            logging.error('leftover value %s', result)
-            sys.exit(4)
-    # User facing errors, do not provide stack trace.
-    except TextXSyntaxError as e:
-        (logging.exception if DEBUG else logging.error)(e)
-        sys.exit(2)
-    except execution.ExecutionError as e:
-        (logging.exception if DEBUG else logging.error)(e)
-        sys.exit(3)
+    parser = argparse.ArgumentParser(description='Parameter Inference Footling (PIF)')
+    parser.add_argument('files', nargs='*', help='files to execute (leave empty for REPL)')
+    parser.add_argument('-v', '--verbosity', type=int, choices=[0, 1, 2, 3, 4], default=1)
+    main(parser.parse_args())
