@@ -56,7 +56,28 @@ def run_program(mm, prog_str, context=None, parse_debug=False):
     return mm.model_from_str(prog_str, debug=parse_debug).eval(context)
 
 
+def setup_readline():
+    import readline
+    import atexit
+
+    histfile = os.path.join(os.path.expanduser("~"), ".pif_history")
+
+    try:
+        readline.read_history_file(histfile)
+        h_len = readline.get_current_history_length()
+    except FileNotFoundError:
+        open(histfile, 'wb').close()
+        h_len = 0
+
+    def save():
+        readline.set_history_length(10000)
+        readline.append_history_file(readline.get_current_history_length() - h_len, histfile)
+    atexit.register(save)
+
+
 def run_repl(mm, parse_debug=False):
+    setup_readline()
+
     c = make_context()
     while True:
         try:
@@ -106,7 +127,6 @@ def main(args):
         code = run_files(mm, args.files, parse_debug=parse_debug)
 
     sys.exit(code)
-
 
 
 if __name__ == '__main__':
