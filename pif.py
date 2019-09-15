@@ -3,6 +3,7 @@ from textx.metamodel import metamodel_from_file
 
 import argparse
 import codecs
+from collections import OrderedDict
 import logging
 import os
 import sys
@@ -29,20 +30,21 @@ def make_metamodel():
 
 
 def make_builtin(fn, args_dict):
-    # TODO should have same lookup rules as normal Function.
-    # also, this is wacky.
-    # Can probably fix it more nicely when I figure out how to do proper
-    # type lookups/comparisons.
-    # Doing this now because of type equality.
-    return lambda s_c: fn(*(s_c.pop_type(t) for (_, t) in args_dict.items()))
+    def runnable(s_c):
+        # Empty definition context, because, well, they're not defined 'anywhere'.
+        new_c = Context().new_function_context(s_c, args_dict)
+        return fn(*(new_c.lookup_by_name(n)[1] for n in args_dict))
+
+    return runnable
 
 
 def make_context():
     c = Context()
-    c.push_name('print_s', make_builtin(print, dict(s=str)))
-    c.push_name('print_f', make_builtin(print, dict(f=float)))
-    c.push_name('print_l', make_builtin(print, dict(l=list)))
-    c.push_name('print_d', make_builtin(print, dict(d=dict)))
+    c.push_name('eat_s', make_builtin(lambda s: None, OrderedDict(s=str)))
+    c.push_name('print_s', make_builtin(print, OrderedDict(s=str)))
+    c.push_name('print_f', make_builtin(print, OrderedDict(f=float)))
+    c.push_name('print_l', make_builtin(print, OrderedDict(l=list)))
+    c.push_name('print_d', make_builtin(print, OrderedDict(d=dict)))
     c.push_name('string', str)
     c.push_name('number', float)
 
@@ -85,14 +87,11 @@ def run_repl(mm, parse_debug=False):
         except EOFError:
             print()
             return 0
+
         try:
             print('<-', run_program(mm, line + '\n', context=c, parse_debug=parse_debug))
-        except TextXSyntaxError as e:
+        except (TextXSyntaxError, execution.ExecutionError) as e:
             logging.error(e)
-            continue
-        except execution.ExecutionError as e:
-            logging.error(e)
-            continue
 
 
 def run_files(mm, file_names, parse_debug=False):

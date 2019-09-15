@@ -1,5 +1,13 @@
 # pif
 
+some way to explicitly pull something out of current context? Or is this just misunderstanding?
+  (in REPL, would be nice to generate _then_ assign - and also to discard with `_`)
+
+REPL - need to recover from error situation caused by throwing different types into
+  current context (causes subsequent errors)
+
+any
+
 type equality/isinstance comparisons
 
 figure out how to do Function more nicely (separate builtin/non-builtin types?)

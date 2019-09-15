@@ -86,7 +86,8 @@ def function_eval(self, definition_context):
 
     def runnable(s_c):
         exec_context = definition_context.new_function_context(s_c, arg_dict)
-        return self.block.eval(exec_context)
+        return self.block.eval(exec_context) if self.block else None
+        # Or exec_context.result() ?
 
     return runnable
 

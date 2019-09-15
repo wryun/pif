@@ -10,7 +10,7 @@ class Context:
     def __init__(self, parent=None, n_v=None, t_v=None, args=None, args_dupe_types=None):
         self.parent = parent
         self.n_v = n_v or {}
-        self.t_v = n_v or {}
+        self.t_v = t_v or {}
         self.args = args or {}
         self.args_dupe_types = args_dupe_types or set()
 

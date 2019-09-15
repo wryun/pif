@@ -44,6 +44,12 @@ class Function(TestCase):
             List[fib 1 ., fib 2 ., fib 3 ., fib 4 ., fib 5 .]
         '''))
 
+    def test_empty(self):
+        self.assertIsNone(run('''
+            fib = func () end
+            fib .
+        '''))
+
     def test_recursive(self):
         self.assertEqual([1.0, 1.0, 2.0, 3.0, 5.0], run('''
             fib = func (n number)
