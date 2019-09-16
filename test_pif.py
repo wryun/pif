@@ -26,6 +26,28 @@ class ExecError(TestCase):
         self.assertIn('position (1, 1)', str(cm.exception))
 
 
+class DotOperator(TestCase):
+    def test_normal(self):
+        self.assertIsNone(run('''
+            "foo" eat_s .
+        '''))
+        self.assertIsNone(run('''
+            eat_s "foo" .
+        '''))
+        self.assertIsNone(run('''
+            eat_f ((1 + 1)) .
+        '''))
+
+    def test_tightbind(self):
+        self.assertIsNone(run('''
+            "foo" eat_s.
+        '''))
+        with self.assertRaises(ExecutionError) as cm:
+            run('''
+                eat_s "foo".
+            ''')
+
+
 class Function(TestCase):
     def test_basic(self):
         self.assertEqual([1.0, 1.0, 2.0, 3.0, 5.0], run('''
@@ -121,4 +143,15 @@ class If(TestCase):
     def test_empty_failure(self):
         self.assertIsNone(run('''
             if 0 do 3 end
+        '''))
+
+
+class Comment(TestCase):
+    def test_comment(self):
+        self.assertEqual('a', run('''
+            # comment before
+            1 # comment on the line
+            'a' # same paragraph continued
+            # don't stop the paragraph...
+            eat_f.
         '''))

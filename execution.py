@@ -69,14 +69,26 @@ def sentence_eval(self, c):
     debug(self)
     s_c = Context(c)
     for instruction in self.instructions:
-        if instruction == '.':
+        if instruction.pushable and not instruction.exec:
+            s_c.push_type(instruction.pushable.eval(c))
+
+        # This implements dot operator tight-binding -
+        # i.e. if you have a '.' immediately after an item,
+        # we assume that _that_ is the function call. This helps
+        # us disambiguate in certain circumstances (e.g. when
+        # passing a function to a function).
+        # Maybe a misfeature...
+        if instruction.exec:
+            if instruction.pushable:
+                f = instruction.pushable.eval(c)
+            else:
+                f = s_c.pop_type(types.FunctionType)
+
             logging.debug('before func: %s', s_c)
-            val = s_c.pop_type(types.FunctionType)(s_c)
+            val = f(s_c)
             if val is not None:
                 s_c.push_type(val)
             logging.debug('after func: %s', s_c)
-        else:
-            s_c.push_type(instruction.eval(c))
 
     return s_c.result()
 

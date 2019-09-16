@@ -76,7 +76,7 @@ class LookupByType(TestCase):
         ''')
 
     def test_in_function_copy(self):
-        """Can even reuse (because closure, each gets its own copy of the context)"""
+        """Can even reuse (each call gets its own copy of paragraph level context)"""
         run('''
         func ()
             "x"

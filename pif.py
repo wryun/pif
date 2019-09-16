@@ -14,8 +14,8 @@ import expression
 import execution
 
 
-def make_metamodel():
-    mm = metamodel_from_file('grammar.tx', ws=' ')
+def make_metamodel(parse_debug=False):
+    mm = metamodel_from_file('grammar.tx', skipws=False, ws=' ', debug=parse_debug)
     classes = mm.namespaces['grammar']
 
     # magically attach things from modules to automatically
@@ -41,6 +41,7 @@ def make_builtin(fn, args_dict):
 def make_context():
     c = Context()
     c.push_name('eat_s', make_builtin(lambda s: None, OrderedDict(s=str)))
+    c.push_name('eat_f', make_builtin(lambda f: None, OrderedDict(f=float)))
     c.push_name('print_s', make_builtin(print, OrderedDict(s=str)))
     c.push_name('print_f', make_builtin(print, OrderedDict(f=float)))
     c.push_name('print_l', make_builtin(print, OrderedDict(l=list)))
@@ -118,7 +119,7 @@ def main(args):
         0: logging.ERROR, 1: logging.WARNING, 2: logging.INFO, 3: logging.DEBUG
     }.get(args.verbosity, logging.DEBUG))
 
-    mm = make_metamodel()
+    mm = make_metamodel(parse_debug=parse_debug)
 
     if not args.files:
         code = run_repl(mm, parse_debug=parse_debug)
