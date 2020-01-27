@@ -1,5 +1,45 @@
 import logging
 
+from exectypes import get_type, Type
+
+
+class TypeContext:
+    def __init__(self):
+        self.d = {}
+        self.custom = set()
+
+    def remove(self, t):
+        if isinstance(t, Type):
+            self.custom.remove(t)
+        del self.d[t]
+
+    def get(self, t):
+        if t in self.d:
+            return self.d[t]
+        
+        if not isinstance(t, Type):
+            return None
+        
+        candidates = [candidate for candidate in self.custom if t.obeys(candidate)]
+        if not candidates:
+            return None
+        elif len(candidates) > 1:
+            raise KeyError(f'unresolvable ambiguous type {t} - candidates: {candidates}')
+        else:
+            return self.d[candidates[0]]
+    
+    def push(self, v):
+        t = get_type(v)
+        self.d[t] = v
+        if isinstance(t, Type):
+            self.custom.add(t)
+
+    def copy(self):
+        tc = TypeContext()
+        tc.d = self.d.copy()
+        tc.custom = set(self.custom)
+        return tc
+
 
 # rules:
 #  looking up to call a function should only look in current function context
@@ -10,7 +50,7 @@ class Context:
     def __init__(self, parent=None, n_v=None, t_v=None, args=None, args_dupe_types=None):
         self.parent = parent
         self.n_v = n_v or {}
-        self.t_v = t_v or {}
+        self.t_v = t_v or TypeContext()
         self.args = args or {}
         self.args_dupe_types = args_dupe_types or set()
 
@@ -24,8 +64,11 @@ class Context:
             raise KeyError(f'no such type "{t}" in current context')
         elif t in self.args_dupe_types:
             raise KeyError(f'attempting to automatically fill ambiguous type {t} (multiple names for that type in function sig)')
-        elif t in self.t_v:
-            return self, self.t_v[t]
+        else:
+            res = self.t_v.get(t)
+            if res:
+                return self, res
+
         if recurse > 1 or self.parent is None:
             # looks similar to above, huh? Not quite.
             raise KeyError(f'no such type "{t}" in current context')
@@ -51,14 +94,14 @@ class Context:
             del self.args[n]
             del self.args[t]
             del self.n_v[n]
-        del self.t_v[t]
+        self.t_v.remove(t)
 
     def delete_type(self, n):
         if n in self.args:
             t = self.args[n]
             del self.args[t]
             del self.args[n]
-            del self.t_v[t]
+            self.t_v.remove(t)
 
     def pop_type(self, t):
         c, val = self.lookup_by_type(t)
@@ -67,15 +110,16 @@ class Context:
 
     def push_type(self, val):
         """Types (only) are allowed to shadow"""
-        t = type(val)
+        t = get_type(val)
         logging.debug(f'{t} = {val}')
-        if t in self.t_v:
+        v = self.t_v.get(t)
+        if v is not None:
             if t in self.args:
                 del self.args[self.args[t]]
                 del self.args[t]
             else:
-                raise Exception(f'{val} can\'t replace {t}={self.t_v[t]}')
-        self.t_v[t] = val
+                raise Exception(f'{val} can\'t replace {t}={v}')
+        self.t_v.push(val)
 
     def push_name(self, n, val):
         # Can _replace_
@@ -94,14 +138,14 @@ class Context:
             raise Exception(f'existing name {n}')
 
     def result(self):
-        if len(self.t_v) == 0:
+        if len(self.t_v.d) == 0:
             return None
-        if len(self.t_v) == 1:
+        if len(self.t_v.d) == 1:
             # TODO right way
             # TODO Check only unnamed values once destructuring
-            return list(self.t_v.values())[0]
+            return list(self.t_v.d.values())[0]
         else:
-            raise Exception(f'multiple values: {self.t_v.values()}')
+            raise Exception(f'multiple values: {self.t_v.d.values()}')
 
     def copy(self):
         return Context(self.parent, self.n_v.copy(), self.t_v.copy(), self.args.copy(), self.args_dupe_types.copy())
@@ -135,7 +179,7 @@ class Context:
 
     def __str__(self):
         from pprint import pformat
-        res = f'  {pformat(self.n_v)}\n  --{pformat(self.t_v)}'
+        res = f'  {pformat(self.n_v)}\n  --{pformat(self.t_v.d)}'
         if self.parent:
             return res + '\n' + str(self.parent)
         else:

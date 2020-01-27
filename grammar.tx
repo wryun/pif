@@ -10,23 +10,23 @@ Sentence: instructions+=Instruction;
 Instruction: /[ ]*/ (pushable=Pushable exec='.' | pushable=Pushable | exec='.');
 Assignment[skipws]: var=MyID '=';
 
-Pushable: function=Function | var=MyID | rawval=RawVal | expr=WrappedExpression;
+Pushable: function=Function | type=Type | struct=Struct | var=MyID | rawval=RawVal | expr=WrappedExpression;
 If: 'if' condition=Sentence /[ ]*/ 'do' block=Block ('elif' elif_conditions=Sentence /[ ]*/ 'do' elif_blocks=Block)* ('else' else_block=Block)? 'end';
 While: 'while' condition=Sentence /[ ]*/ 'do' block=Block 'end';
 For: 'for' (/[ ]*/ var=MyID /[ ]*/ 'in' )? sentence=Sentence /[ ]*/ 'do' block=Block 'end';
 
-Function: 'func' /[ ]*/ args=Types block=Block /[ ]*/ 'end';
+Function: 'func' /[ ]*/ args=Type block=Block /[ ]*/ 'end';
 WrappedExpression: '((' e=Expression0 /[ ]*/ '))';
-Types: '(' varsWithType*=VarWithType ')';
+Type: '(' /[ \n]*/ (varsWithType=VarWithType /[ \n]*/)* ')';
 VarWithType[skipws]: name=MyID type=MyID;
 
 Keyword: 'end' | 'func' | 'if' | 'while' | 'for' | 'do' | 'else' | 'elif' | 'List[' | 'Dict[';
 MyID: !Keyword ID;
 
 RawVal: FLOAT | STRING | List | Dict;
-List: 'List[' (sentences=Sentence /(?m),?\n*/)* ']';
-Dict: 'Dict[' (keys=Sentence '=' values=Sentence /(?m),?\n*/)* ']';
-// Struct: '[' (MyID '=' Sentence)* ']';
+List: 'List[' (/[ \n]*/ sentences=Sentence /(?m),?\n*/)* ']';
+Dict: 'Dict[' (/[ \n]*/ keys=Sentence '=' values=Sentence /(?m),?\n*/)* ']';
+Struct: type=MyID? '[' (/[ \n]*/ assigns=Assignment sentences=Sentence)* /[ \n]*/ ']';
 
 Expression0[skipws]: expr=Expression1 (ops=Operators0 exprs=Expression1)*;
 Operators0[skipws]: '==' | '<=' | '>=' | '<' | '>' | '!=';

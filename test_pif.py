@@ -42,7 +42,7 @@ class DotOperator(TestCase):
         self.assertIsNone(run('''
             "foo" eat_s.
         '''))
-        with self.assertRaises(ExecutionError) as cm:
+        with self.assertRaises(ExecutionError):
             run('''
                 eat_s "foo".
             ''')

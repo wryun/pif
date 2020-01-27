@@ -5,6 +5,7 @@ import types
 from textx.model import get_model
 
 from context import Context
+from exectypes import Struct, Type
 
 
 def msg_with_position(obj, message):
@@ -69,6 +70,7 @@ def sentence_eval(self, c):
     debug(self)
     s_c = Context(c)
     for instruction in self.instructions:
+        debug(self, instruction)
         if instruction.pushable and not instruction.exec:
             s_c.push_type(instruction.pushable.eval(c))
 
@@ -80,11 +82,13 @@ def sentence_eval(self, c):
         # Maybe a misfeature...
         if instruction.exec:
             if instruction.pushable:
+                debug(self, 'pushable')
                 f = instruction.pushable.eval(c)
             else:
+                debug(self, 'functype')
                 f = s_c.pop_type(types.FunctionType)
 
-            logging.debug('before func: %s', s_c)
+            logging.debug('before func %s: %s', f, s_c)
             val = f(s_c)
             if val is not None:
                 s_c.push_type(val)
@@ -130,6 +134,10 @@ def pushable_eval(self, c):
     elif self.function:
         logging.debug(c)
         return self.function.eval(c)
+    elif self.type:
+        return self.type.eval(c)
+    elif self.struct:
+        return self.struct.eval(c)
     elif hasattr(self.rawval, 'sentences'):
         return [s.eval(c) for s in self.rawval.sentences]
     elif hasattr(self.rawval, 'keys'):
@@ -151,8 +159,15 @@ def while_eval(self, c):
     return last_eval
 
 
-def types_eval(self, c):
-    return {entry.name: c.get_name(entry.type) for entry in self.varsWithType}
+def type_eval(self, c):
+    return Type({entry.name: c.get_name(entry.type) for entry in self.varsWithType})
+
+
+def struct_eval(self, c):
+    s = Struct({k.var: s.eval(c) for (k, s) in zip(self.assigns, self.sentences)})
+    if self.type and not s.type.obeys(c.get_name(self.type)):
+        raise ExecutionError(self, f'not a valid {self.type}')
+    return s
 
 
 def for_eval(self, c):

@@ -7,6 +7,7 @@ from collections import OrderedDict
 import logging
 import os
 import sys
+import types
 
 
 from context import Context
@@ -48,6 +49,7 @@ def make_context():
     c.push_name('print_d', make_builtin(print, OrderedDict(d=dict)))
     c.push_name('string', str)
     c.push_name('number', float)
+    c.push_name('Function', types.FunctionType)
 
     return c
 
@@ -95,7 +97,7 @@ def run_repl(mm, parse_debug=False):
             logging.error(e)
 
 
-def run_files(mm, file_names, parse_debug=False):
+def run_files(mm, file_names, *, verbosity=0, parse_debug=False):
     try:
         for fname in file_names:
             with open(fname) as f:
@@ -106,10 +108,10 @@ def run_files(mm, file_names, parse_debug=False):
                 return 4
     # User facing errors, do not provide stack trace.
     except TextXSyntaxError as e:
-        (logging.exception if args.verbosity > 2 else logging.error)(e)
+        (logging.exception if verbosity > 2 else logging.error)(e)
         return 2
     except execution.ExecutionError as e:
-        (logging.exception if args.verbosity > 2 else logging.error)(e)
+        (logging.exception if verbosity > 2 else logging.error)(e)
         return 3
 
 
@@ -124,7 +126,7 @@ def main(args):
     if not args.files:
         code = run_repl(mm, parse_debug=parse_debug)
     else:
-        code = run_files(mm, args.files, parse_debug=parse_debug)
+        code = run_files(mm, args.files, verbosity=args.verbosity, parse_debug=parse_debug)
 
     sys.exit(code)
 
