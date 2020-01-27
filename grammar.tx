@@ -26,7 +26,7 @@ MyID: !Keyword ID;
 RawVal: FLOAT | STRING | List | Dict;
 List: 'List[' (/[ \n]*/ sentences=Sentence /(?m),?\n*/)* ']';
 Dict: 'Dict[' (/[ \n]*/ keys=Sentence '=' values=Sentence /(?m),?\n*/)* ']';
-Struct: type=MyID? '[' (/[ \n]*/ assigns=Assignment sentences=Sentence)* /[ \n]*/ ']';
+Struct: type=MyID? '[' (/[ \n]*/ assigns=Assignment sentences=Sentence /(?m),?\n*/)* /[ \n]*/ ']';
 
 Expression0[skipws]: expr=Expression1 (ops=Operators0 exprs=Expression1)*;
 Operators0[skipws]: '==' | '<=' | '>=' | '<' | '>' | '!=';

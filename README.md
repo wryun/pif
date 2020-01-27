@@ -2,12 +2,12 @@
 
 Sometime you get a stupid idea, and it just won't let you go...
 
-pif is a computer language with two inspiration from human language
+pif is a computer language with two influences from human language
 that I haven't seen used in this way before:
 
 - the ability to have a number of unnamed (or potentially named) things
   that one automatically refers to (cf Forth's stack, or Perl's $\_), but
-  we use static types to determine which one we should use.
+  we use types to determine which one we should use.
 - vertically significant whitespace (horizontal significance is so 90s).
 
 This is mostly a joke, and I've so far implemented it with as little effort as
@@ -18,13 +18,15 @@ All of it really comes from the idea that human language relies on context,
 but computer languages generally avoid potential ambiguity. But how far
 could we push the ambiguity while remaining sane? So, in pif:
 
-- each sentence has a function/verb (in any position) and ends in a period
-- each line has at most one result (either named or not named)
+- each sentence has a function/verb (in any position)
+- each line (of one or more sentences) has at most one result (either named or not named)
 - each paragraph (newline separated) has at most one outstanding unnamed result
   from its lines
 - verbs/functions can refer to anything in the context by their types
   (e.g. if I have a function that takes a number, and there is one number
   in the context, I must be referring to that number!)
+- unless an unnamed result is the conclusion of a paragraph, you can only
+  refer to it once
 
 ## Show me some code that doesn't yet work
 
@@ -35,65 +37,69 @@ could we push the ambiguity while remaining sane? So, in pif:
       talk Function
     )
 
-    NewBear = func (name string)
-      Animal[
+    NewBear = func (name string) Animal
+      [
         name = name
         type = "bear"
 
-        talk = func (a Animal)
-          print a::name " the " a::type " says: ROAR!" .
+        talk = func (Animal)
+          print name " the " type " says: ROAR!"
         end
       ]
     end
 
-    NewBear "grumpy" . ::talk .
+    NewBear "grumpy" . talk .
 
 So far, so boring. BUT you could also write the final line as:
 
     "grumpy" NewBear.
+    talk.
 
-    ::talk.
-
-There is no ordering to the function arguments. The period ('`.`') is actually an
-instruction that says 'look in the current context, and see if you can find
-a function to execute', and when that function is executed it looks around for
-arguments in the context that will match. The final ::talk is particularly
-magical: look in the current context for a struct that has 'talk' as part of it,
-and find the result of that. Now this would usually consume that value
-(you usually can't have multiple references to the same value unless you
-name it), but because the period is right next to the ::talk we know
-what the period is connected to and allow the Animal to be populated
-as part of the context.
+Here we see there is no ordering to the function arguments.
+The `talk` is particularly magical: look in the current context for a struct
+that has `talk` as part of it, and find the result of that. Now this would usually consume
+the `Animal` (as you can't have multiple references to the same value unless you
+name it or it's the final result of a paragraph), but because it's a function we automatically
+pass its associated object if it's called.
 
 So this would also be valid:
 
-    "grumpy" NewBear.
+    NewBear "grumpy" .
     print_s "I created a bear!" .
     # The bear is the only output from this paragraph, and lands
     # in the context.
 
-    ::talk.  # the bear is the only thing in the context that can talk.
+    talk. # the bear is the only thing in the context that can talk.
+    talk. # Because it's the result of a paragraph, we can talk twice.
 
 But this wouldn't be:
 
     "grumpy" NewBear.
-    ::talk.
-    ::talk.  # no bear left to talk - we used him up!
+    talk.
+    talk. # no bear left to talk - we used him up!
 
-If we wanted the bear to talk twice, we'd have to name him properly:
+If we wanted the bear to talk twice in the same paragraph,
+we'd have to name him properly:
 
-    grumpy = "grumpy" NewBear.
-    grumpy::talk. grumpy::talk.
+    bear = "grumpy" NewBear.
+    bear talk.
+    bear talk.
+
+Or, to make things clearer with a little more punctuation:
+
+    bear = "grumpy" NewBear.
+    bear::talk.
+    bear::talk.
 
 But we don't let ambiguity get completely out of control, so this would fail:
 
     "grumpy" NewBear.
     "happy" NewBear.
-    ::talk.  # fails here - both objects in our context can talk.
+    talk. # fails here - both objects in our context have the talk field.
 
 And so would this:
 
-    "grumpy" NewBear. "happy" NewBear.
+    NewBear "grumpy" . "happy" NewBear.
     # fails here - two 'results' from above sentence.
 
 And finally:
@@ -104,7 +110,48 @@ And finally:
     # fails here - two results from above paragraph (yes, it's fine to have a line
     # that does not have a function execution at all).
 
+Think of function evaluation as requiring a certain number of arguments. Once
+all those arguments are unambiguously filled from the context, it's evaluated.
+`print` takes an arbitrary number of arguments, so it's not unambiguously
+filled until the end of the line (or a '.' happens, which forces resolution).
+
+## Resolution rules
+
+As introduced in the previous section, _pif_ relies heavily on rules to
+determine what a particular identifier or argument refers to.
+
+Almost all of these rules have the possibility of an ambiguous reference,
+which is an error if it occurs.
+
+### Unnamed argument resolution (populating function args)
+
+Break if any ambiguity.
+
+- does it exist in the fields of any object in the current context?
+- does it exist in the fields of an object in the sentence 
+
+### Named argument resolution
+
+### Named variable resolution
+
+Break if any ambiguity.
+
+- Does it exist in the fields of the object that was just pushed into the context
+  in the current sentence?
+
+      NewBear "grumpy" talk
+
+- Does it exist in the fields of an object in the sentence
+
 ## Misc contradictory TODO thoughts
+
+Write proper Context tests. Fix up TypeContext to work for
+args/args_dupe_types (and write tests for it...)
+
+User accessible 'debug' of current context
+
+do we really want the non-punctuation version? Probably not?
+If so, need a way to get a non-greedy function (i.e. one that won't eval)
 
 some way to explicitly pull something out of current context? Or is this just misunderstanding?
   (in REPL, would be nice to generate _then_ assign - and also to discard with `_`)
@@ -135,12 +182,6 @@ zig style fake generics?
 
 clean up base types to act like struct types
   - add some functions to them
-
-[] grouping and associated types:
-  [x=1 y=2] -> it's a structy thing (also can stick type in front of to assert). Commas optional
-  [x, y,] -> it's a list. Commas required to avoid ambiguity.
-  ['x':1; 'y':2;] -> it's a dict (single instruction on LHS to avoid ambiguity, semi-colon to avoid
-                                  confusing with list and select operators below)
 
   -> syntax for copying and deleting?
   -> can also assert type on creation:
